@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>パトカーサイレン</title>
+<style>
+  body {
+    background: #111;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+    font-family: sans-serif;
+  }
+  .light {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: #300;
+    margin-bottom: 30px;
+    transition: background 0.1s, box-shadow 0.1s;
+  }
+  .light.active {
+    background: #ff1a1a;
+    box-shadow: 0 0 60px #ff1a1a, 0 0 120px #ff0000;
+  }
+  button {
+    font-size: 18px;
+    padding: 12px 28px;
+    cursor: pointer;
+    border: none;
+    border-radius: 8px;
+    background: #e60012;
+    color: #fff;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+
+<div class="light" id="sirenLight"></div>
+<button id="toggleBtn">サイレン開始</button>
+
+<script>
+let audioCtx = null;
+let osc = null;
+let gainNode = null;
+let timer = null;
+let isPlaying = false;
+
+const btn = document.getElementById('toggleBtn');
+const light = document.getElementById('sirenLight');
+
+btn.addEventListener('click', () => {
+  if (!isPlaying) {
+    startSiren();
+    btn.textContent = '停止';
+  } else {
+    stopSiren();
+    btn.textContent = 'サイレン開始';
+  }
+  isPlaying = !isPlaying;
+});
+
+function startSiren() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  osc = audioCtx.createOscillator();
+  gainNode = audioCtx.createGain();
+
+  osc.type = 'sawtooth'; // ノコギリ波でサイレンらしい音色に
+  gainNode.gain.value = 0.15; // 音量（大きすぎないよう調整）
+
+  osc.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+  osc.start();
+
+  // 日本のパトカー風の音程上下（約650Hz〜960Hz）と点滅
+  let high = false;
+  const sweep = () => {
+    const now = audioCtx.currentTime;
+    if (!high) {
+      osc.frequency.cancelScheduledValues(now);
+      osc.frequency.setValueAtTime(650, now);
+      osc.frequency.linearRampToValueAtTime(960, now + 0.6);
+      light.classList.add('active');
+    } else {
+      osc.frequency.cancelScheduledValues(now);
+      osc.frequency.setValueAtTime(960, now);
+      osc.frequency.linearRampToValueAtTime(650, now + 0.6);
+      light.classList.remove('active');
+    }
+    high = !high;
+  };
+
+  sweep();
+  timer = setInterval(sweep, 600);
+}
+
+function stopSiren() {
+  clearInterval(timer);
+  if (osc) {
+    osc.stop();
+    osc.disconnect();
+  }
+  if (audioCtx) {
+    audioCtx.close();
+  }
+  light.classList.remove('active');
+}
+</script>
+
+</body>
+</html>
